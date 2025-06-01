@@ -7,6 +7,8 @@ from pylatex.utils import NoEscape
 
 def convert_html_latex(element):
 
+    print(f"element: {element}")
+
     if isinstance(element, NavigableString):
         return str(element)
     
@@ -63,6 +65,8 @@ def extract_toc(toc_div):
 
     walk_list(toc_div.find('ul'))
 
+    print(f"toc_items: {toc_items}")
+
     return toc_items
     
 
@@ -99,11 +103,44 @@ def fetch_entry(url):
             overview_paragraph = convert_html_latex(p_tag)
             overview_paragraph = re.sub(r'\s+', ' ', overview_paragraph).strip() # strip whitespace, linebreaks, tabs, etc
 
+
+    section_contents = {}
+
+    for section in toc:
+        if section['level'] == 1:
+            print(f"Section: {section['title']}")
+            print(f"Section_ID: {section['id']}")
+            section_header = soup.find('h2', id=section['id'])
+            print(f"section_header: {section_header}")
+            content_parts = []
+
+            for sibling in section_header.find_next_siblings():
+                # print(f"sibling: {sibling}")
+                if sibling.name and sibling.name.startswith('h2'):
+                    break       # stop at next main section
+                if sibling.name == 'p':
+                    latex_paragraph = convert_html_latex(sibling)
+                    latex_paragraph = re.sub(r'\s+', ' ', latex_paragraph).strip() # strip whitespace, linebreaks, tabs, etc
+                    print(f"latex_paragraph: {latex_paragraph}")
+                    content_parts.append(latex_paragraph)
+                    
+            section_contents[section['id']] = '\n\n'.join(content_parts)
+            
+            # if section_header:
+            #     p_tag  = section_content.find('p')
+            #     section_paragraph = convert_html_latex(p_tag)
+            #     section_paragraph = re.sub(r'\s+', ' ', overview_paragraph).strip() # strip whitespace, linebreaks, tabs, etc
+            #     print(f"section_paragraph: {section_paragraph}")
+            #     section_contents[section['id']] = section_paragraph
+
+    # print(f"section_contents: {section_contents}")
+
     return {
         'title': title,
         'publication': pub_info,
         'toc': toc,
-        'overview': overview_paragraph
+        'overview': overview_paragraph,
+        'section_contents': section_contents
     }
 
 def build_latex_doc(data, filename="bergson"):
@@ -130,8 +167,15 @@ def build_latex_doc(data, filename="bergson"):
 
     # Loop over ToC sections and add them as LaTex sections
     for item in data['toc']:
+
         if item['level'] == 1:
+
+            section_id = item['id']
+            section_text = data['section_contents'][section_id]
+            
             doc.append(NoEscape(rf'\section{{{item["title"]}}}'))
+            doc.append(NoEscape(section_text))
+
         elif item['level'] == 2:
             doc.append(NoEscape(rf'\subsection{{{item["title"]}}}'))
 
